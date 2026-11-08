@@ -1,0 +1,6 @@
+# dsh-live-eta — ambient task ETA line above the composer.
+# The host half listens to session/event and serves /api/dsh-live-eta;
+# the client half renders the collapsible status line.
+- insert:
+    - id: live-eta
+      name: dsh-live-eta

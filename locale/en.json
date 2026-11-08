@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Live ETA",
+    "description": "Shows elapsed time, a self-correcting remaining-time range and the current phase above the composer while a task runs."
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "name": "dsh-live-eta",
+  "version": "0.1.0",
+  "description": "Live task ETA for DeepSeek Harness: an ambient, collapsible progress line with a rule-based, self-calibrating time estimate. No extra model calls.",
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "docs"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "eta",
+    "progress"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iReic-coder/dsh-live-eta.git"
+  },
+  "homepage": "https://github.com/iReic-coder/dsh-live-eta#readme",
+  "bugs": {
+    "url": "https://github.com/iReic-coder/dsh-live-eta/issues"
+  }
+}
