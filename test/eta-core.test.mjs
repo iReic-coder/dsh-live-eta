@@ -425,3 +425,57 @@ test('calibration report computes coverage and error metrics', () => {
   assert.ok(cal.maeMs > 0);
   assert.equal(cal.flutter, 1.5);
 });
+
+test('a cold start estimates a short turn, not the category median', () => {
+  const task = makeTask('修复登录接口报错');
+  task.observe(user(T0, '修复登录接口报错'));
+  task.observe(ev('turn/start', T0 + 10, { turn: 1 }));
+  const snap = task.snapshot(T0 + 3_000, 240_000);
+  // The category prior for `debug` is nine minutes; the chip must not promise
+  // that before the task has shown it is a long one.
+  assert.ok(snap.estimate.medianMs <= 60_000, `median ${snap.estimate.medianMs}`);
+  assert.ok(snap.initial.medianMs <= 60_000, `initial ${snap.initial.medianMs}`);
+  assert.ok(snap.estimate.highMs / snap.estimate.lowMs <= 2.45);
+});
+
+test('a task that outlives the short-turn window grows into the category prior', () => {
+  const task = makeTask('实现导出功能');
+  task.observe(user(T0, '实现导出功能'));
+  task.observe(ev('turn/start', T0 + 10, { turn: 1 }));
+  const early = task.snapshot(T0 + 10_000, 240_000);
+  const late = task.snapshot(T0 + 200_000, 240_000);
+  assert.ok(late.estimate.medianMs > early.estimate.medianMs * 3, 'long task must not stay on the short scale');
+});
+
+test('the interval narrows as the task progresses', () => {
+  const span = (snap) => snap.estimate.highMs / snap.estimate.lowMs;
+  const task = makeTask('实现登录流程并补测试');
+  task.observe(user(T0, '实现登录流程并补测试'));
+  task.observe(ev('turn/start', T0 + 10, { turn: 1 }));
+  const todos = (done) => JSON.stringify({
+    todos: [
+      { content: 'a', status: 'completed' },
+      { content: 'b', status: done >= 2 ? 'completed' : 'pending' },
+      { content: 'c', status: done >= 3 ? 'completed' : 'pending' },
+      { content: 'd', status: 'pending' },
+    ],
+  });
+  task.observe(toolCall(T0 + 20_000, 't1', 'todo_write', todos(1)));
+  task.observe(toolResult(T0 + 21_000, 't1'));
+  const early = task.snapshot(T0 + 30_000, 240_000);
+  task.observe(toolCall(T0 + 120_000, 't2', 'todo_write', todos(3)));
+  task.observe(toolResult(T0 + 121_000, 't2'));
+  const late = task.snapshot(T0 + 150_000, 240_000);
+  assert.ok(span(early) <= 2.45);
+  assert.ok(span(late) <= 1.7, `late span ${span(late)}`);
+  assert.ok(span(late) <= span(early));
+});
+
+test('calibration exposes the short-turn median for the cold start', () => {
+  const records = [];
+  for (let i = 0; i < 10; i += 1) records.push({ ms: 12_000, trace: [] });
+  for (let i = 0; i < 5; i += 1) records.push({ ms: 900_000, trace: [] });
+  const model = buildCalibration(records);
+  assert.equal(model.tasks, 5, 'only long tasks feed the bias model');
+  assert.ok(model.quickMs > 10_000 && model.quickMs < 20_000, `quickMs ${model.quickMs}`);
+});
