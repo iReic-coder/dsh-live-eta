@@ -319,6 +319,50 @@ test('a biased history shrinks the point estimate through the bucket model', () 
   assert.ok(snap.estimate.highMs >= snap.estimate.medianMs);
 });
 
+test('a workspace with enough samples gets its own prior', () => {
+  const rows = [
+    { ms: 10 * 60_000, category: 'feature', cwd: 'A' },
+    { ms: 11 * 60_000, category: 'feature', cwd: 'A' },
+    { ms: 9 * 60_000, category: 'feature', cwd: 'A' },
+    { ms: 60 * 60_000, category: 'feature', cwd: 'B' },
+    { ms: 62 * 60_000, category: 'feature', cwd: 'B' },
+    { ms: 58 * 60_000, category: 'feature', cwd: 'B' },
+  ];
+  const inA = statsFor(rows, 'feature', null, 'A');
+  assert.equal(inA.scope, 'workspace');
+  assert.ok(inA.median < 15 * 60_000);
+  const noWorkspace = statsFor(rows, 'feature', null, 'C');
+  assert.equal(noWorkspace.scope, 'category');
+});
+
+test('older tasks count less than recent ones', () => {
+  const now = Date.UTC(2026, 10, 8);
+  const rows = [
+    { ms: 60 * 60_000, category: 'feature', endedAt: now - 365 * 24 * 60 * 60_000 },
+    { ms: 10 * 60_000, category: 'feature', endedAt: now },
+  ];
+  const stats = statsFor(rows, 'feature', null, null, now);
+  assert.ok(stats.median < 20 * 60_000);
+});
+
+test('the first plan seeds the pace from learned time per plan unit', () => {
+  const prior = { ...priorFor(classify('实现导出功能'), null), unitMs: 120_000 };
+  const task = new EtaTask({ sessionId: 's', startedAt: T0, prior, classified: classify('实现导出功能') });
+  task.observe(user(T0, '实现导出功能'));
+  task.observe(ev('turn/start', T0 + 10, { turn: 1 }));
+  const todos = JSON.stringify({
+    todos: [
+      { content: '实现导出函数', status: 'pending' },
+      { content: '补一条测试', status: 'pending' },
+    ],
+  });
+  task.observe(toolCall(T0 + 20_000, 't1', 'todo_write', todos));
+  task.observe(toolResult(T0 + 21_000, 't1'));
+  const snap = task.snapshot(T0 + 30_000, 240_000);
+  // 2 weight units x 2 min = 4 min, not the static 10-12 min prior.
+  assert.ok(snap.estimate.medianMs < 8 * 60_000);
+});
+
 test('turn end settles the task and produces a calibration record', () => {
   const task = makeTask('改一个配置');
   task.observe(user(T0, '改一个配置'));
